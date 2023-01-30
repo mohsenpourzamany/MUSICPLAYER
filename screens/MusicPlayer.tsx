@@ -1,3 +1,4 @@
+import React, {useEffect, useRef, useState} from 'react';
 import {
   StyleSheet,
   SafeAreaView,
@@ -6,28 +7,111 @@ import {
   Dimensions,
   Image,
   Text,
+  Animated,
 } from 'react-native';
+import TrackPlayer, {
+  Capability,
+  Event,
+  RepeatMode,
+  State,
+  usePlaybackState,
+  useProgress,
+  useTrackPlayerEvents,
+} from 'react-native-track-player';
 import Slider from '@react-native-community/slider';
-import React from 'react';
+
 import Icon from 'react-native-vector-icons/Ionicons';
+import songs from '../model/Data';
+
+// interface itemType : {
+//   item: {
+//     id: number;
+//     title: string;
+//     artist: string;
+//     artwork: any;
+//     url: string;
+// }, index: number
+// }
 
 const {width} = Dimensions.get('window');
 
+const setUpPlayer = async () => {
+  try {
+    await TrackPlayer.setupPlayer();
+    await TrackPlayer.add(songs);
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const togglePlayBack = async (playBackState: State) => {
+  const curentTrack = await TrackPlayer.getCurrentTrack();
+  if (curentTrack != null) {
+    if (playBackState === State.Paused) {
+      await TrackPlayer.play();
+    } else {
+      await TrackPlayer.pause();
+    }
+  }
+};
+
 const MusicPlayer = () => {
+  const playBackState = usePlaybackState();
+  const [songIndex, setSongIndex] = useState(0);
+
+  const scrollX = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    setUpPlayer();
+    scrollX.addListener(({value}) => {
+      // console.log(value);
+      const index = Math.round(value / width);
+      setSongIndex(index);
+      // console.log(index);
+    });
+  }, [scrollX]);
+
+  const renderSongs = ({item, index}) => {
+    return (
+      <Animated.View style={styles.mainImageWrapper}>
+        <View style={[styles.imageWrapper, styles.elevation]}>
+          <Image source={item.artwork} style={styles.musicImage} />
+        </View>
+      </Animated.View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.maincontainer}>
         {/* image */}
-        <View style={[styles.imageWrapper, styles.elevation]}>
-          <Image
-            source={require('../assets/img/img1.jpg')}
-            style={styles.musicImage}
-          />
-        </View>
+
+        <Animated.FlatList
+          renderItem={renderSongs}
+          data={songs}
+          keyExtractor={item => item.id}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator
+          scrollEventThrottle={16}
+          onScroll={Animated.event(
+            [
+              {
+                nativeEvent: {
+                  contentOffset: {x: scrollX},
+                },
+              },
+            ],
+            {useNativeDriver: true},
+          )}
+        />
+
         {/* song content */}
-        <Text style={[styles.songTitle, styles.songContent]}>Song Title</Text>
+        <Text style={[styles.songTitle, styles.songContent]}>
+          {songs[songIndex].title}
+        </Text>
         <Text style={[styles.songArtist, styles.songContent]}>
-          Song Artist Name
+          {songs[songIndex].artist}
         </Text>
         {/* slider */}
         <View>
@@ -54,15 +138,23 @@ const MusicPlayer = () => {
 
         <View style={styles.musicControl}>
           <TouchableOpacity onPress={() => {}}>
-            <Icon name="play-skip-back-outline" size={30} color="#ffd369" />
+            <Icon name="play-skip-back-outline" size={35} color="#ffd369" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => togglePlayBack(playBackState)}>
+            <Icon
+              name={
+                playBackState === State.Playing
+                  ? 'ios-play-circle'
+                  : 'ios-pause-circle'
+              }
+              size={70}
+              color="#ffd369"
+            />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => {}}>
-            <Icon name="ios-pause-circle" size={70} color="#888888" />
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => {}}>
-            <Icon name="play-skip-forward-outline" size={30} color="#ffd369" />
+            <Icon name="play-skip-forward-outline" size={35} color="#ffd369" />
           </TouchableOpacity>
         </View>
       </View>
@@ -169,5 +261,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '60%',
     margin: 15,
+  },
+  mainImageWrapper: {
+    width: width,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
